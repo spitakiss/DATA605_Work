@@ -1,0 +1,310 @@
+---
+ttitle: 'DATA 605: Week 9 Assignment'
+author: "Aaron Grzasko"
+date: "4/1/2017"
+output: 
+  html_document:
+    code_folding: show
+    theme: default
+    highlight: haddock
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment=NA, message=FALSE)
+```
+
+## Problem Set 1  
+  
+**This week, we'll empirically verify Central Limit Theorem. We'll write code to run a small simulation on some distributions and verify that the results match what we expect from Central Limit Theorem. Please use R markdown to capture all your experiments and code. Please submit your Rmd file with your name as the filename.**  
+<br>  
+
+**1. First write a function that will produce a random variable that is distributed as follows:**  
+
+$$f(x) = x;\quad0 \le x \le 1$$
+$$f(x) = 2 - x; \quad 1 <x\le 2$$
+**That is, when your function is called, it will return a random variable between 0 and 2 that is distributed according to the above PDF.**  
+  
+First, load all relevant packages:  
+  
+```{r}
+if(!require('ggplot2')) {install.packages('ggplot2'); library(ggplot2)}
+if (!require('gridExtra')) {install.packages('gridExtra');library(gridExtra)}
+```
+
+The PDF can be specified as follows:  
+  
+```{r}
+# pdf stored as R function
+pdf1 <- function(x){
+  (x >= 0 & x <=1) * x + (x >1 & x <=2) * (2-x)
+}
+```  
+Here is a graph of the PDF:  
+
+```{r, message = FALSE}
+p <- ggplot(data = data.frame(x = 0), mapping = aes(x = x))
+p + stat_function(fun = pdf1) + xlim(0,2)
+```
+
+<br>  
+
+For this assignment, we will explore three different methods for randomly generating numbers from the domain of our functions.    
+  
+####  Method 1:  Using R's sample() Function  
+
+  
+With this method, we approximate the sequence of all possible values in our function's domain by sampling from small, discrete (e.g. delta = 0.001) intervals.  We then use R's built-in `sample()` function to randomly sample from this discrete sequence with probabilities defined by the function's PDF.  
+  
+```{r}
+# generate random number from pdf using R's sample() function
+# function takes the following input:  pdf function, lower x bound, upper x bound
+
+rand_smplfunc <- function(func, lower, upper){
+  
+  # discrete approximation to function's domain
+  x_values <- seq(lower,upper,by = 10^-3)
+  
+  # randomly sample from x values using probabilities specified by the pdf
+  sample(x = x_values, size = 1, replace = TRUE, prob = func(x_values))
+  
+}
+
+# generate random number using sample() function 
+rand_smplfunc(pdf1,0,2)
+
+```
+  
+#### Method 2:  Inverse CDF
+  
+Next, we generate a random number from our PDF using the inverse CDF method.  This method works as follows:  
+  
+* Generate a number between 0 and 1, using a random draw from a U(0,1) distribution. This number corresponds to a percentile from our underlying probability distribution.  
+* Integrate the probability density function (PDF) to produce the cumulative distribution function (CDF).  
+* Set the CDF equal to the randomly drawn percentile.  
+* Solve for x, which represents a random draw from the PDF.    
+
+```{r}
+# generate random number using inverse CDF method
+# inputs include function pdf, lower xbound, upper xbound
+rand_invcdf <- function (func, lower, upper){
+    
+    # simulate distribution function quantile
+    my_rand <- runif(1,min=0, max=1)
+    
+    # integrate pdf to find CDF and subtract randomly generated percentile 
+    Fx_minus_p <- function(t){integrate(func, lower=lower, upper=t)$value - my_rand}
+    
+    # solve for x in F(x) - p = 0 
+    x <- uniroot(Fx_minus_p, c(lower,upper))
+    
+    # return x
+    x$root 
+}
+
+# generate random number using inverse cdf method
+rand_invcdf(pdf1,0,2)
+```
+#### Method 3:  Rejection Sampling  
+  
+Rejection sampling is a good alternative to the inverse CDF method, particularly when calculating the CDF from the specified PDF is impractical or impossible.  
+  
+With this method, we choose another function, q(x), whose values--when multiplied by constant A--are always greater than the values of our target PDF function, f(x).  
+  
+For a randomly selected x value from q(x), we calculate the ratio, R = f(x) / [A*q(x)], which is a value between 0 and 1. Note:  A ratio close to 1 indicates that q(x) is good approximation of f(x) at or near x.
+  
+We simulate another random variable, u, with values between 0 and 1.  If u < R, then we return the value of x.  If u >= R, we repeat the process by simulating additional x and u values and again compare u and R.  
+  
+In practical applications, one should choose a function q(x) that--when multiplied by the scaling constant A--is a reasonably accurate approximation of f(x).  Doing so will result in an efficient implementation of the acceptance/rejection algorithm.  For this assignment, we are using a uniform distribution as our q(x) function, but substituting other distributions could improve computational efficiency.      
+```{r}
+# generate random number using rejection sampling
+# inputs inlucde function pdf, lower xbound, upper xbound, scaling factor for enveloping distribution
+rand_reject <- function(func, lower, upper, A){
+  
+  # repeat process until boolean expression below evaluates to true
+  repeat{
+    # 
+    u <- runif(1)
+    
+    # randomly select number in domain of function q(x)
+    x <- runif(1,lower,upper)
+ 
+    # enveloping function q(x) (uniform dist) 
+    # scaling factor A ensures value is always greater than pdf of target function 
+    qx_A <- dunif(x,lower,upper) * A
+    
+    # if random number u is less than ratio of pdf of actual function to pdf 
+    # of scaled approx function at random domain value x, then return x 
+    if (u  < (func(x) / qx_A)) return(x)
+  }
+}
+
+# generate random number using rejection sampling
+rand_reject(pdf1,0,2,2)
+
+```
+
+
+**2. Now, write a function that will produce a sample of random variable that is distibuted as follows:**  
+$$f(x) = 1-x;\quad0 \le x \le 1$$
+$$f(x) = x-1; \quad 1 <x\le 2$$
+Here is the PDF:  
+
+```{r}
+# second pdf, stored as R function
+pdf2 <- function(x){
+  (x >= 0 & x <=1)*(1-x) + (x >1 & x <=2) * (x-1)
+}
+```
+  
+Below is a plot of the PDF:  
+```{r, message = FALSE}
+p <- ggplot(data = data.frame(x = 0), mapping = aes(x = x))
+p + stat_function(fun = pdf2) + xlim(0,2)
+```
+  
+We produced the functions necessary for drawing the random variable in the previous section.  We simply need to change our inputs to specify the new PDF:  
+
+#### Method 1: Using R's sample() Function  
+  
+```{r}
+# generate random number using sample() function 
+rand_smplfunc(pdf2,0,2)
+```
+  
+#### Method 2: Inverse CDF  
+```{r}
+# generate random number using inverse cdf method
+rand_invcdf(pdf2,0,2)
+```
+  
+#### Method 3: Rejection Sampling  
+```{r}
+# generate random number using rejection sampling
+rand_reject(pdf1,0,2,2)
+```
+<br>  
+
+**3. Draw 1000 samples (call your function 1000 times each) from each of the above two distributions and plot the  resulting histograms.  You should have one histogram for each PDF. See that it matches your understanding of these PDFs.**  
+  
+All three methods produce histograms that approximate the intended PDFs.  
+  
+#### Method 1:  Using R's sample() Function  
+  
+```{r}
+# Method 1:
+# histograms of pdf1 and pdf2, respectively
+# using 1000 random draws for each plot
+m1.pdf1 <- qplot(replicate(1000,rand_smplfunc(pdf1,0,2)),xlab = "x", main = "Method 1, PDF1")
+m1.pdf2 <- qplot(replicate(1000,rand_smplfunc(pdf2,0,2)),xlab = "x", main = "Method 1, PDF2")
+grid.arrange(m1.pdf1, m1.pdf2, ncol=2)
+```  
+  
+#### Method 2: Inverse CDF  
+
+```{r}  
+# Method 2
+# histograms of pdf1 and pdf2, respectively
+# using 1000 random draws for each plot
+m2.pdf1 <- qplot(replicate(1000,rand_invcdf(pdf1,0,2)), xlab = "x", main = "Method 2, PDF1")
+m2.pdf2 <- qplot(replicate(1000,rand_invcdf(pdf2,0,2)), xlab = "x", main = "Method 2, PDF2") 
+grid.arrange(m2.pdf1, m2.pdf2, ncol=2)
+
+```  
+
+#### Method 3: Rejection Sampling  
+
+```{r}  
+# Method 3
+# histograms of pdf1 and pdf2, respectively
+# using 1000 random draws for each plot
+m3.pdf1 <- qplot(replicate(1000,rand_reject(pdf1,0,2,2)), xlab = "x", main = "Method 3, PDF1")
+m3.pdf2 <- qplot(replicate(1000,rand_reject(pdf2,0,2,2)), xlab = "x", main = "Method 3, PDF2") 
+grid.arrange(m3.pdf1, m3.pdf2, ncol=2)
+```  
+  
+**4. Now, write a program that will take a sample set size n as a parameter and the PDF as the second parameter, and perform 1000 iterations where it samples from the PDF, each time taking n samples and computes the mean of these n samples.  It then plots a histogram of these 1000 means that it computes.**  
+  
+```{r}
+# function to plot histogram of 1000 mean values for 
+# randomly generated samples of size n.
+# Demonstrates CLT:  the sampling distribution of the mean for a non-normal distribution
+# is approximately normal.  The normal approximation improves as the sample size, n, increases.
+
+mean_sample <- function(n,func, plot_title){
+  
+  # store the name of the function input as string. This is necessary to
+  # do multiple function calls and generate
+  # new values with each call
+  func_string <- deparse(substitute(func))
+  
+  # For each of 1000 iterations, calculate mean of sample size n
+  # and add to master vector
+  mean_vec <- numeric()
+  for (i in 1:1000){
+    mean_vec[i] <- mean(replicate(n, eval(parse(text=func_string))))
+  }
+  
+  # plot vector of 1000 means as histogram
+  qplot(mean_vec, xlab="sample mean", main=plot_title)
+}
+``` 
+
+**5. Verify that as you set n to something like 10 or 20, each of the two PDFs produce normally distributed mean of samples, empirically verifying the Central Limit Theorem. Please play around with various values of n and you’ll see that even for reasonably small sample sizes such as 10, Central Limit Theorem holds.**  
+  
+In the plots below, we see that the normal approximation generally improves as the sample size increases.  Even for very small samples (e.g. n=5), we see a rough bell shape--although the tails tend to be heavier than the larger samples. 
+  
+#### Method 1: Using R's sample() Function  
+  
+```{r}
+# plots for method 1, for pdfs 1 and 2, given sample sizes of 5, 10, and 20
+m1.pdf1.n5 <- mean_sample(5,rand_smplfunc(pdf1,0,2),plot_title="Method 1, PDF 1\nSample Mean Plot\nn=5")
+m1.pdf1.n10 <- mean_sample(10,rand_smplfunc(pdf1,0,2),plot_title="Method 1, PDF 1\nSample Mean Plot\nn=10")
+m1.pdf1.n20 <- mean_sample(20,rand_smplfunc(pdf1,0,2),plot_title="Method 1, PDF 1\nSample Mean Plot\nn=20")
+
+m1.pdf2.n5 <- mean_sample(5,rand_smplfunc(pdf2,0,2),plot_title="Method 1, PDF 2\nSample Mean Plot\nn=5")
+m1.pdf2.n10 <- mean_sample(10,rand_smplfunc(pdf2,0,2),plot_title="Method 1, PDF 2\nSample Mean Plot\nn=10")
+m1.pdf2.n20 <- mean_sample(20,rand_smplfunc(pdf2,0,2),plot_title="Method 1, PDF 2\nSample Mean Plot\nn=20")
+
+
+grid.arrange(m1.pdf1.n5,m1.pdf1.n10,m1.pdf1.n20,m1.pdf2.n5,m1.pdf2.n10,m1.pdf2.n20, ncol=3, nrow=2)
+```  
+  
+#### Method 2: Inverse CDF  
+  
+```{r}
+# plots for method 2, for pdfs 1 and 2, given sample sizes of 5, 10, and 20
+m2.pdf1.n5 <- mean_sample(5,rand_invcdf(pdf1,0,2),plot_title="Method 2, PDF 1\nSample Mean Plot\nn=5")
+m2.pdf1.n10 <- mean_sample(10,rand_invcdf(pdf1,0,2),plot_title="Method 2, PDF 1\nSample Mean Plot\nn=10")
+m2.pdf1.n20 <- mean_sample(20,rand_invcdf(pdf1,0,2),plot_title="Method 2, PDF 1\nSample Mean Plot\nn=20")
+
+m2.pdf2.n5 <- mean_sample(5,rand_invcdf(pdf2,0,2),plot_title="Method 2, PDF 2\nSample Mean Plot\nn=5")
+m2.pdf2.n10 <- mean_sample(10,rand_invcdf(pdf2,0,2),plot_title="Method 2, PDF 2\nSample Mean Plot\nn=10")
+m2.pdf2.n20 <- mean_sample(20,rand_invcdf(pdf2,0,2),plot_title="Method 2, PDF 2\nSample Mean Plot\nn=20")
+
+
+grid.arrange(m2.pdf1.n5,m2.pdf1.n10,m2.pdf1.n20,m2.pdf2.n5,m2.pdf2.n10,m2.pdf2.n20, ncol=3, nrow=2)
+``` 
+
+
+#### Method 3: Rejection Sampling  
+```{r}
+# plots for method 3, for pdfs 1 and 2, given sample sizes of 5, 10, and 20
+m3.pdf1.n5 <- mean_sample(5,rand_reject(pdf1,0,2,2),plot_title="Method 3, PDF 1\nSample Mean Plot\nn=5")
+m3.pdf1.n10 <- mean_sample(10,rand_reject(pdf1,0,2,2),plot_title="Method 3, PDF 1\nSample Mean Plot\nn=10")
+m3.pdf1.n20 <- mean_sample(20,rand_reject(pdf1,0,2,2),plot_title="Method 3, PDF 1\nSample Mean Plot\nn=20")
+
+m3.pdf2.n5 <- mean_sample(5,rand_reject(pdf2,0,2,2),plot_title="Method 3, PDF 2\nSample Mean Plot\nn=5")
+m3.pdf2.n10 <- mean_sample(10,rand_reject(pdf2,0,2,2),plot_title="Method 3, PDF 2\nSample Mean Plot\nn=10")
+m3.pdf2.n20 <- mean_sample(20,rand_reject(pdf2,0,2,2),plot_title="Method 3, PDF 2\nSample Mean Plot\nn=20")
+
+
+grid.arrange(m3.pdf1.n5,m3.pdf1.n10,m3.pdf1.n20,m3.pdf2.n5,m3.pdf2.n10,m3.pdf2.n20, ncol=3, nrow=2)
+```  
+
+## References
+  
+The following resources were used to implement the rejection sampling algorithm:  
+* [https://theclevermachine.wordpress.com/2012/09/10/rejection-sampling/](https://theclevermachine.wordpress.com/2012/09/10/rejection-sampling)  
+* [http://www.mas.ncl.ac.uk/~ndjw1/teaching/sim/reject/circ.html](http://www.mas.ncl.ac.uk/~ndjw1/teaching/sim/reject/circ.html)  
+
