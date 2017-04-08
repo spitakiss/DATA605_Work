@@ -1,0 +1,216 @@
+---
+ttitle: 'DATA 605: Week 10 Assignment'
+author: "Aaron Grzasko"
+date: "4/6/2017"
+output: 
+  html_document:
+    theme: default
+    highlight: haddock
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment=NA, message=FALSE, warning=FALSE)
+```
+
+## 1. Playing With PageRank  
+  
+**You'll verify for your self that PageRank works by performing calculations on a small universe of web pages. Let's use the 6 page universe that we had in the course notes.**  
+<br>  
+<center>![](https://raw.githubusercontent.com/spitakiss/DATA605_Work/master/Week10/URLGraph.PNG)</center>  
+<br>  
+
+**For this directed graph, perform the following calculations in R:**  
+  
+**Form the *A* matrix.**  
+  
+The directed graph above can be represented in matrix form as follows:  
+
+$$\textbf{A}=\begin{bmatrix}
+0 & 1/2 & 1/2 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 \\
+1/3 & 1/3 & 0 & 0 & 1/3 & 0 \\
+0 & 0 & 0 & 0 & 1/2 & 1/2 \\
+0 & 0 & 0 & 1/2 & 0 & 1/2 \\
+0 & 0 & 0 & 1 & 0 & 0 
+\end{bmatrix}$$
+<br>  
+  
+Each row *i* of the matrix $\textbf{A}$ corresponds to associated outlinks (where nonzero), and each column *j* corresponds to inlinks.    
+
+Here is the matrix initialized in R:  
+
+```{r}
+# rows of matrix
+at1 <- c(0, 1/2, 1/2, 0, 0, 0)
+at2 <- rep(0,6)
+at3 <- c(1/3, 1/3, 0, 0, 1/3, 0)
+at4 <- c(0, 0, 0, 0, 1/2, 1/2)
+at5 <- c(0, 0, 0, 1/2, 0, 1/2)
+at6 <- c(0, 0, 0, 1, 0, 0)
+
+# matrix A formed from individual rows
+A <- matrix(rbind(at1,at2,at3,at4,at5,at6),6,6)
+
+# print A
+formatC(A, format="f", digits=3)
+
+```
+  
+**Then, introduce decay and form the B matrix as we did in the course notes.**  
+  
+Matrix $\textbf{B}$ is formulated as follows:  
+$$\textbf{B}=d\textbf{A} + \frac{(1-d)}{n}\textbf{ee}^T $$  
+The scalar $n$ represents the number of webpages in our universe, scalar $d$ is our selected decay factor, and $\textbf{ee}^T$ is a square matrix with the same dimensions as matrix $\textbf{A}$ and with all elements set to 1.    
+
+Before we implement the formula above, we must modify the original matrix *A*:  
+  
+* Node 2 in our six webpage universe is referred to as a "dangling node."  If a web surfer reaches new webpages by clicking on hyperlinks from other webpages, then he inevitably get stuck after entering Node 2.  That is, Node 2 has no outbound links.  
+* The dangling node phenomenon is problematic, as our ultimate goal is to construct a transition matrix $\textbf{B}$ so that repeated left multiplications ,*N*, of the transpose matrix, $\textbf{B}^T$ to an arbitrary column vector, $\textbf{r}_0$, converges to a unique positive vector, $\textbf{r}_f$. That is, ${ { (\textbf{B} }^{ T }) }^{ N }{ \textbf{r} }_{ 0 }={ \textbf{r} }_{ f }$.  
+* One key requirement for convergence is that our transition matrix is stochastic, which requires all non-negative entries and each row of the matrix to sum to one.  While our original matrix $\textbf{A}$ has all non-negative entries, row 2 sums to zero.      
+
+We apply the following adjustments to the original matrix $\textbf{A}$ to ensure our matrix is stochastic:  
+$$\textbf{A}^*=\textbf{A} + \textbf{a}(\frac{1}{n}\textbf{e}^T)$$  
+Here, $\textbf{a}$ is a column vector with element *i* set to 1 if row *i* of matrix $\textbf{A}$ is a dangling node, and 0 otherwise. The scalar *n* refers to the total number of webpages in our universe, and $\textbf{e}^T$ is a row vector of 1s.  
+  
+Let's implement the modified matrix, $\textbf{A}$ in R:  
+
+```{r}
+
+# number of webpages in universe 
+n <- nrow(A)
+
+# A modified, a stochastic matrix with each row summing to 1
+A_mod <- A + (apply(A,1,sum)!=1) * 1/n
+
+# print A modified
+formatC(A_mod, format="f", digits=3)
+```
+  
+We are now ready to form matrix B, using the formula described earlier, but now substituting $\textbf{A}^*$ for $\textbf{A}$ in the earlier equation.    
+
+```{r}
+# set decay factor
+d <- 0.85
+
+# initialize matrix B  
+B <- d*A_mod + (1-d)/n 
+
+# print B
+formatC(B, format="f", digits=3)
+```
+ 
+  
+The additional adjustments applied to $\textbf{A}^*$ in our equation for  $\textbf{B}$ ensure convergence of this Markov process:  
+  
+* The matrix is now irreducible, which means that each node is connected to every other node--refer to the positive probabilities for each element *ij* in matrix $\textbf{B}$.  
+* The matrix is aperiodic, as indicated by the positive probability of a web surfer staying within the same webpage with each successive iteration  
+  
+<br>  
+
+**Start with a uniform rank vector $\textbf{r}_0$ and perform power iterations on $B$ till convergence.  That is, compute the solution $\textbf{r}_f$. That is, ${ { (\textbf{B} }^{ T }) }^{ N }{ \textbf{r} }_{ 0 }={ \textbf{r} }_{ f }$. Attempt this for a sufficiently large $n$ so that $\textbf{r}_f$ actually converges.**  
+  
+Below, we calculate $\textbf{r}_f$ for various values of $n$.  We see almost no change in the resulting vector between $N=20$ and $N=30$.  
+
+```{r}
+
+# install expm package, if not already installed.
+# package allows us to take exponents of matrices
+if (!require('expm')) {install.packages('expm');library(expm)}
+
+# initial, uniform rank vector
+r0 <- rep(1/6,6)
+
+
+# show rank vector after 0, 10, 20, and 30 iterations
+# rf = B^T * r0
+for (i in seq(0,30, by=10)){
+  print(paste0("rank vector at iteration ",i,":"))
+  print((t(B) %^% i) %*% r0)
+  print("-----------------------------")
+
+}
+
+
+```
+
+
+**Compute the eigen-decomposition of $B$ and verify that you indeed get an eigenvalue of 1 as the largest eigenvalue.**  
+
+Using R's 'eigen()` function, we see that the largest eigenvalue is 1:  
+  
+```{r}
+# eigen-decomposition of matrix B^T
+eigen(t(B))
+```
+
+**Verify that the corresponding eigenvector is the same vector that you obtained in the previous power iteration method.**  
+  
+Let's calculate $r_f$ using $N=30$ iterations and normalize to a unit vector.  Then, compare to the eigenvector using R's built-in eigen() function:  
+
+```{r}
+# rf after 30 iterations
+rf_pwrmthd <- t(B) %^% 30 %*% r0
+
+# normalize rf_pwrmthd to unit vector 
+rf_pwrmthd_unit <- rf_pwrmthd / sqrt(sum(rf_pwrmthd^2))
+
+# eigenvector associated with lambda = 1, from eigen() function
+rf_eigen1 <-  eigen(t(B))$vectors[,1]
+
+# verify that this is equal to eigenvector calculation using eigen(), given small error tolerance
+abs(rf_pwrmthd_unit - rf_eigen1) < 0.0001
+```
+
+**Further, verify this eigenvector has all positive entries and it sums to 1.**  
+
+```{r}
+# verify all positive entries in eigenvector
+Re(rf_pwrmthd) > 0
+
+# verify entries sum to 1
+sum(rf_pwrmthd)
+
+```
+  
+**Use the graph package in R and its page.rank method to compute the Page Rank of the graph as given in A. Note that you don't need to apply decay. The package starts with a connected graph and applies decay internally.**  
+```{r}
+# install and/or load igraph package 
+if (!require('igraph')) {install.packages('igraph');library(igraph)}
+
+# plot original matrix A in igraph
+A_graph <- graph_from_adjacency_matrix(A, weighted=TRUE)
+plot(A_graph)
+
+# calculate PageRank given original matrix A 
+rf_igraph <- page.rank(graph_from_adjacency_matrix(A, weighted=TRUE))
+rf_igraph$vector
+```
+
+**Verify that you do get the same PageRank vector as the two approaches above.**  
+
+For consistency we'll normalize the PageRank to be of length 1, and then compare to the other two approaches. 
+
+```{r}  
+# normalize pagerank vector
+rf_igraph_unit <- rf_igraph$vector / sqrt(sum(rf_igraph$vector^2))  
+rf_igraph_unit
+
+# verify that rf_igraph_unit is equal to eigenvector calculation using eigen(), given small error tolerance
+abs(rf_igraph_unit - rf_eigen1) < 0.0001
+
+# verify that rf_igraph_unit is equal to eigenvector from power method with N=30, given small error tolerance
+abs(rf_igraph_unit - rf_eigen1) < 0.0001
+
+```
+## References 
+  
+The adjustments applied to the original matrix $\textbf{A}$ were adapted from pages 24-40 of the book, *Google's PageRank and Beyond*:  
+
+* Langville, Amy N, and Carl Dean Meyer. *[Google's PageRank and Beyond](https://www.amazon.com/Googles-PageRank-Beyond-Science-Rankings/dp/0691152667/ref=sr_1_1?ie=UTF8&qid=1491569954&sr=8-1&keywords=google%27s+pagerank+and+beyond+the+science+of+search+engine+rankings)*. 1st ed. Princeton: Princeton University Press, 2012.  
+ 
+The following two web resources were used to gain working knowledge of the igraph package:  
+  
+* [http://kateto.net/networks-r-igraph](http://kateto.net/networks-r-igraph)  
+* [http://igraph.org/](http://igraph.org/)
+
+
