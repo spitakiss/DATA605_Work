@@ -1,0 +1,261 @@
+---
+ttitle: 'DATA 605: Week 11 Assignment'
+author: "Aaron Grzasko"
+date: "4/8/2017"
+output: 
+  html_document:
+    theme: default
+    highlight: haddock
+---
+
+```{r setup, include=FALSE}
+# widen output to fit each variable output on one row
+options(width = 87)
+
+knitr::opts_chunk$set(echo = TRUE, comment=NA, message=FALSE)
+```
+
+## Linear Regression in R  
+  
+### Heart Rate Data  
+
+**Using R’s *lm* function, perform regression analysis and measure the significance of the independent variables for the following two data sets. In the first case, you are evaluating the statement that we hear that Maximum Heart Rate of a person is related to their age by the following equation:**  
+$$MaxHR=220-Age$$  
+**You have been given the following sample:**  
+```{r}
+
+# variable vectors
+age <- c(18, 23, 25, 35, 65, 54, 34, 56, 72, 19, 23, 42, 18, 39, 37)
+maxhr <- c(202, 186, 187, 180, 156, 169, 174, 172, 153, 199, 193, 174, 198, 183, 178)
+
+#display output
+rbind(age, maxhr)
+```
+**Perform a linear regression analysis fitting the Max Heart Rate to Age using the *lm* function in R.**  
+  
+```{r}
+# fit linear model of form max_hr = b*age + a
+ols <- lm(maxhr ~ age)
+
+# ols output
+summary(ols)
+
+
+```  
+**What is the resulting equation?**  
+
+The fitted equation is:  
+$$\hat { MaxHR } =`r round(ols$coefficients["age"],4)`Age + `r round(ols$coefficients["(Intercept)"],4)` $$  
+**Is the effect of Age on Max HR significant?  What is the significance level?**  
+<br>  
+
+*Testing No Age Effect*  
+
+First, let's test the null hypothesis that the impact of age has no impact on max heart rate.  In formal terms, our null and alternative hypotheses are:  
+  
+$$H_0:\beta =0$$
+$$H_A:\beta\ne0$$  
+
+We set the significance level--typically 5%--in advance of performing our hypothesis tests.  
+```{r}
+# two sided p-value for fitted slope parameter, t stat:  slope est / std err
+pval <- summary(ols)$coefficient[,"Pr(>|t|)"][2]
+names(pval) <- NULL
+pval
+```
+Our p-value for the estimated age coefficient is well below our 5% threshold; so we reject the null hypothesis of age having no impact on maximum heart rate.  In other words, the data in our sample favor $H_A$ over $H_0$.  We conclude that there is a statistically significant relationship between age and maximum heart rate.  
+
+*Testing A Priori Model: Slope*  
+ 
+Prior to fitting our regression model, we assumed the following linear relationship between the variables of interest: $MaxHR=220-Age$.  That is, we assumed the following slope and intercept parameters: $\beta=-1$ and $\alpha = 220$.  
+  
+We can test if the difference in our estimated parameters vis-a-vis our initial assumptions are statistically significant.  We'll start with the fitted slope coefficient.  Here is the hypothesis test:  
+$$H_0:\beta =-1$$
+$$H_A:\beta\ne-1$$  
+  
+  
+```{r}
+# calculate p-value for t stat:  (slope_est - (-1)) / std err
+
+# slope parameter estimate
+slope_est <- ols$coefficients[2]
+
+# standard error of slope estimate
+slope_se <-summary(ols)$coefficients[2,"Std. Error"] 
+
+#t statistic with mu = -1, our a priori slope assumption
+t_slope <- (slope_est - (-1)) / slope_se
+
+# calculate two-sided p-value, degrees of freedom = n - 2
+pval_neg1 <- 2*pt(-abs(t_slope),df=length(age)-2)
+names(pval_neg1) <- NULL
+pval_neg1
+```
+The p-value is 0.0126, which is less than our 0.05 threshold; so we reject the null hypothesis that the true slope parameter is -1.  
+  
+*Testing A Priori Model: Intercept*  
+Here is the relevant hypothesis test:  
+$$H_0:\alpha =220$$
+$$H_A:\alpha\ne220$$ 
+```{r}
+# calculate p-value for t stat:  (int_est - 220) / std err
+
+# intercept parameter estimate
+int_est <- ols$coefficients[1]
+
+# standard error of slope estimate
+int_se <-summary(ols)$coefficients[1,"Std. Error"] 
+
+
+#t statistic with mu = 220, our a priori slope assumption
+t_int <- (int_est - 220) / int_se
+
+# calculate two-sided p-value, degrees of freedom = n - 2
+pval_220 <- 2*pt(-abs(t_int),df=length(age)-2)
+names(pval_220) <- NULL
+pval_220
+```  
+Once again, our p-value is less than 0.05 and we reject the null hypothesis that the true intercept parameter is 220.  
+  
+Based on our sample data, we have compelling evidence that the approximate, linear relationship between age and maximum heart rate is different than $MaxHR=220-Age$.  
+
+**Please also plot the fitted relationship between Max HR and Age**  
+  
+```{r}
+# install/load ggplot
+if (!require('ggplot2')) {install.packages('ggplot2');library(ggplot2)}
+
+# equation and r squared of model
+eqn <-paste0("MaxHR = ",round(ols$coefficients["age"],3),"Age + ", 
+             round(ols$coefficients["(Intercept)"],3),"; rsq = ",
+             round(summary(ols)$r.squared,3))
+
+# plot model
+ggplot(data.frame(age,maxhr), aes(x=age, y=maxhr)) + geom_point()+stat_smooth(method=lm) + 
+  annotate("text", label=eqn, parse=F, x=60,y=185)
+
+```
+  
+### Car Data  
+  
+**Using the Auto data set from Assignment 5, perform a linear regression analysis using mpg as the dependent variable and the other 4 (displacement, horse-power, weight, acceleration) as independent variables.**  
+  
+**Please perform this experiment in two ways. First take any random 40 data points from the entire auto data sample and perform the linear regression fit and measure the 95% confidence intervals. Then, take the entire data set (all 392 points) and perform linear regression and measure the 95% confidence intervals.**  
+  
+**Please report the resulting fit equation, their significance values and confidence intervals for each of the two runs.**  
+
+Get data: 
+
+```{r}
+# read in data from github url
+myurl <- "https://raw.githubusercontent.com/spitakiss/DATA605_Work/master/Week11/auto-mpg.data"
+car_data <- read.table(myurl, col.names = c("disp","hp","wt","accel","mpg"))
+
+# head of data set
+head(car_data,5)
+```  
+<br>  
+
+#### Regression: Small Sample  
+
+First, we fit the linear model using a random sample of 40 data points from our data set.  
+  
+```{r}
+# randomly choose 40 rows from car_data 
+set.seed(1)
+car_data40 <- car_data[sample(nrow(car_data),40), ]
+```
+  
+Fit model:  
+
+```{r}
+# fit model
+mult_reg40 <- lm(mpg ~ disp + hp + wt + accel, data = car_data40)
+
+# model output
+summary(mult_reg40)
+```
+  
+**What is the final linear regression fit equation?**  
+$$\hat { mpg } =`r round(mult_reg40$coefficients[2],4)`disp + `r round(mult_reg40$coefficients[3],4)`hp + `r round(mult_reg40$coefficients[4],4)`wt + `r round(mult_reg40$coefficients[5],4)`accel + `r round(mult_reg40$coefficients[1],4)`$$  
+  
+**Which of the 4 independent variables have a significant impact on mpg? What are their corresponding significance levels?**  
+  
+For the purpose of this problem, we assume any coefficient with an associated p-value < 0.05 is significant.  
+  
+We are performing the following hypothesis test for each of the four independent variables:  
+$$H_0:\beta_i=0$$
+$$H_A:\beta_i\ne0$$ 
+Based on the 5% level of significance, we reject the null hypothesis for only one of the independent variables: weight.  
+
+```{r}
+# all p-values
+p_values40 <- summary(mult_reg40)$coefficients[2:5,"Pr(>|t|)"]
+p_values40
+
+# reject null hypothesis for p-values less than 0.05
+p_values40[which(p_values40 < .05)]
+```
+  
+**What are the standard errors on each of the coefficients?**  
+```{r}
+# standard error for each of the four independent variables
+se40 <- summary(mult_reg40)$coefficients[2:5,"Std. Error"]
+se40
+``` 
+  
+**What is the 95% confidence interval for each of the regression parameters?**  
+
+We can calculate the confidence intervals very easily in R, without having to resort to formulas (i.e. $\beta_i \pm t \frac{s}{\sqrt{n}}$) by using the `confint()` function:  
+
+```{r}
+confint(mult_reg40)
+```
+<br>  
+
+#### Regression: Full Sample  
+
+We now fit the linear model to our entire sample:
+
+```{r}
+# fit model
+mult_reg <- lm(mpg ~ disp + hp + wt + accel, data = car_data)
+
+# model output
+summary(mult_reg)
+```
+  
+**What is the final linear regression fit equation?**  
+$$\hat { mpg } =`r round(mult_reg$coefficients[2],4)`disp + `r round(mult_reg$coefficients[3],4)`hp + `r round(mult_reg$coefficients[4],4)`wt + `r round(mult_reg$coefficients[5],4)`accel + `r round(mult_reg$coefficients[1],4)`$$  
+  
+**Which of the 4 independent variables have a significant impact on mpg? What are their corresponding significance levels?**  
+  
+Based on the 5% level of significance, we reject the null hypothesis of a zero coefficient for two independent variables:   
+
+* horse-power
+* weight
+
+```{r}
+# all p-values
+p_values <- summary(mult_reg)$coefficients[2:5,"Pr(>|t|)"]
+p_values
+
+# reject null hypothesis for p-values less than 0.05
+p_values[which(p_values < .05)]
+```
+
+**What are the standard errors on each of the coefficients?**  
+```{r}
+summary(mult_reg)$coefficients[2:5,"Std. Error"]
+```
+  
+**What is the 95% confidence interval for each of the regression parameters?**  
+```{r}
+confint(mult_reg)
+```  
+   
+#### Final thoughts  
+  
+The regression equation changed significantly with the full data set.  Specifically, the coefficients for *disp* and *accel* reversed signs from the small sample model--from positive to negative.  On the other hand, the coefficient for *hp* is roughly the same in the full sample model, and the coefficient for *wt* did not change drastically.  
+  
+Also, the standard errors of the regression coefficients were significantly smaller in the full sample, regression model.  This is not surprising as standard error is inversely proportional to the square root of the sample size (i.e. $se=\frac{s}{\sqrt{n}}$).  As a result, the 95% confidence intervals--with formulas explicitly referencing standard error--are also much smaller.  With the larger sample size, we are able to more precisely determine the true parameters of interest.  With this added precision, we were able to conclude, with a high degree of confidence, that *hp*--in addition to *wt*--has a statistically significant impact on car *mpg*.  With the smaller sample set, we were unable to reject the null hypothesis of no impact.   
