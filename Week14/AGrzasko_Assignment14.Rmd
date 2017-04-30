@@ -1,0 +1,96 @@
+---
+ttitle: 'DATA 605: Week 11 Assignment'
+author: "Aaron Grzasko"
+date: "4/29/2017"
+output: 
+  html_document:
+    theme: default
+    highlight: haddock
+---  
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+  
+
+## Taylor Series  
+  
+**This week, we’ll work out some Taylor Series expansions of popular functions.  For each function, only consider its valid ranges as indicated in the notes when you are computing the computing the Taylor Series expansion.**  
+  
+**Overview**  
+Assume we're interested in finding the value of a function, $f(x)$, at or near $x = a$.  If $f(x)$ has a power series expansion about $x=a$ and its derivatives for every order $f^{(n)}$ exist, then we represent the function as follows:  
+$$f(x)=c_0 + c_1(x-a) + c_2(x-a)^2 + c_3(x-a)^3 + c_4(x-a)^4+\dots$$  
+Solve for $c_0$ by taking $f(x)$ at $x=a$:  
+$$f(a)=c_0 + c_1*0+c_2*0^2+c_3*0^3+c_4*0^4+\dots$$
+$$\Rightarrow c_0=f(a)$$  
+Solve for $c_1$ through algebraic manipulation of $f'(a)$:  
+$$f'(a) = c_1 + 2c_2*0 + 3c_3*0^2 + 4c_4*0^3+\dots$$
+$$\Rightarrow c_1=f'(a)$$  
+Solve for $c_2$ using a similar procedure:  
+$$f''(a)=2c_2 + 3*2*c_3*0 + 4*3*c_4*0^2+ \dots$$  
+$$\Rightarrow c_2 = \frac{f''(a)}{2}$$
+Now solve for $c_3$:  
+$$f^{(3)}(a)=3*2*c_3 + 4*3*2*c_4*0 +\dots$$  
+$$\Rightarrow c_3=\frac{f^{(3)}(a)}{3*2}$$  
+Finally, let's solve for $c_4$:  
+$$f^{(4)}(a)=4*3*2*c_4 + 0 + 0 \dots$$  
+$$\Rightarrow c_4=\frac{f^{(4)}(a)}{4*3*2}$$
+
+Now that we've informally established the pattern for solving for all $c_i$, we can use the following general formula for Taylor series expansion:  
+ 
+$$f(x)=\sum_{n=0}^{\infty}\frac{f^n(a)}{n!}(x-a)^n$$  
+1. **Find the Taylor Series expansion for** $\mathbf{f(x)=\frac{1}{1-x}}$  
+
+First, let's find the first five $f^{(n)}(a)$:
+$$f(a)=\frac{1}{1-a}$$  
+$$f'(a)=\frac{1}{(1-a)^2}$$  
+$$f''(a)=\frac{2}{(1-a)^3}$$  
+$$f'''(a)=\frac{6}{(1-a)^4}$$  
+$$f^{(4)}(a)=\frac{24}{(1-a)^5}$$
+
+Plug in the relevant expressions above into our general formula for Taylor Series expansion:  
+$$\frac{1}{1-x}=\frac{1}{(1-a)}+\frac{\frac{1}{(1-a)^2}}{1}(x-a) +\frac{\frac{2}{(1-a)^3}}{2!}(x-a)^2+\frac{\frac{6}{(1-a)^4}}{3!}(x-a)^3+\frac{\frac{24}{(1-a)^5}}{4!}(x-a)^4+\dots$$  
+$$=\frac{1}{(1-a)}+\frac{(x-a)}{(1-a)^2} +\frac{(x-a)^2}{(1-a)^3}+\frac{(x-a)^3}{(1-a)^4}+\frac{(x-a)^4}{(1-a)^5}+\dots$$
+$$=\mathbf{\sum_{n=0}^{\infty}\frac{(x-a)^n}{(1-a)^{n+1}}}$$
+Using the ratio test(i.e. $\lim_{x\to\infty}|\frac{a_{n+1}}{a_n}|$), we know that that the series converges when the quotient is less than 1.  
+
+For this series the ratio test produces $=\lim_{n\to\infty} |\frac{x-a}{1-a}|$.  The series will therefore converge if $|\frac{x-a}{1-a}|<1$  
+<br>  
+
+**2. Find the Taylor Series expansion for** $\mathbf{f(x)=e^x}$  
+  
+Note that $f^{(n)}(a) = e^a$ for $n \ge0$.  
+  
+Using the Taylor Series formula, we have:  
+$$e^x=e^a+e^a(x-a) + e^a\frac{(x-a)^2}{2!}+e^a\frac{(x-a)^3}{3!}+e^a\frac{(x-a)^4}{4!}$$  
+$$\mathbf{=e^a\sum_{n=0}^{\infty}\frac{(x-a)^n}{n!}}$$
+Perform the ratio test: 
+$$\lim_{n\to\infty}|\frac{a_{n+1}}{a_n}| = \lim_{n\to\infty} \frac{|x-a|}{n+1}=0$$  
+This series converges for all values of x and a.  
+<br>  
+**3. Find the Taylor Series expansion for** $\mathbf{f(x)=ln(1+x)}$.  
+  
+Find the first terms in the series:  
+  
+$$f(a) = ln(1+a)$$  
+$$f'(a)=\frac{1}{1+a}$$  
+$$f''(a)=\frac{-1}{(1+a)^2}$$  
+$$f'''(a)=\frac{2}{(1+a)^3}$$  
+$$f^{(4)}(a)=\frac{-6}{(1+a)^4}$$
+Plug into the general Taylor Series formula:  
+  
+$$ln(1+x)=ln(1+a)+\frac{1}{1+a}(x-a)+\frac{\frac{-1}{(1+a)^2}}{2!}(x-a)^2+\frac{\frac{2}{(1+a)^3}}{3!}(x-a)^3+\frac{\frac{-6}{(1+a)^4}}{4!}+\dots$$
+$$=ln(1+a)+\frac{x-a}{1+a}-\frac{1}{2}\left(\frac{x-a}{1+a}\right)^2+\frac{1}{3}\left(\frac{x-a}{1+a}\right)^3-\frac{1}{4}\left(\frac{x-a}{1+a}\right)^4$$  
+$$\mathbf{=ln(1+a)+\sum_{n=1}^{\infty}\frac{(-1)^{n+1}}{n} \left(\frac{x-a}{1+a}\right)^n}$$
+The second expression in the equation above is an alternating series.  We know that alternating series converge whenever the absolute value of each term in the series is smaller than absolute value of the preceding term.  Therefore, this particular series will converge if $|\frac{x-a}{1+a}|\le 1$.  We also note that $a$ must be greater than -1 for this series to be properly defined.    
+
+
+
+
+### References  
+* Ash, Carol, and Robert B. Ash. "Chapter 8: Series." *The Calculus Tutoring Book*. New York: Wiley-IEEE, 1986. 217-58. Print.
+* Paul's Online Math Notes: <http://tutorial.math.lamar.edu/Classes/CalcII/TaylorSeries.aspx>
+
+
+
+
