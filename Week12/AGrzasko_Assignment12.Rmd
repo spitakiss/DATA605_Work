@@ -1,0 +1,82 @@
+---
+title: 'DATA 605: Week 12 Assignment'
+author: "Aaron Grzasko"
+date: "4/26/2017"
+output: 
+    html_document:
+        theme: default
+        highlight: haddock
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment=NA, message=FALSE)
+```
+
+## Bias Variance Tradeoff in R  
+  
+**Using the *stats* and *boot* libraries in R perform a cross-validation experiment to observe the bias variance tradeoff.**  
+  
+```{r}
+# load packages
+if (!require('boot')) {install.packages('boot');library(boot)}
+```
+  
+**You'll use the auto data set from previous assignments. This dataset has 392 observations across 5 variables.**  
+
+```{r}
+# read in data from github url
+myurl <- "https://raw.githubusercontent.com/spitakiss/DATA605_Work/master/Week11/auto-mpg.data"
+car_data <- read.table(myurl, col.names = c("disp","hp","wt","accel","mpg"))
+
+# head of data set
+head(car_data,5)
+
+```
+
+**We want to fit a polynomial model of various degrees using the *glm* function in R and then measure the cross validation error using *cv.glm* function.**  
+  
+**Fit various polynomial models to compute mpg as a function of the other four variables *acceleration*, *weight*, *horsepower*, and *displacement* using *glm* function.**  
+  
+**This result will be stored in a *cv.err5* array.  *cv.glm* returns the estimated cross validation error and its adjusted value in a variable called *delta*.**
+
+
+```{r}
+set.seed(3000)
+
+# for polynomial models of degree i (e.g. 1 through 8)
+max_degree <- 8
+cv.err5 <- numeric()
+
+for (i in 1:max_degree){
+  # fit  polynomial model, degree i
+  glm.fit <- glm(mpg~poly(disp+hp+wt+accel,i), data=car_data)
+  
+  # calculate cross validation error
+  cv.err5[i] <- cv.glm(car_data,glm.fit,K=5)$delta[1]
+}
+```
+
+**Once you have fit the various polynomials from degree 1 to 8, plot the cross validation error function.**  
+
+```{r}
+# plot of cross validation error by degree (or complexity) of model
+degree <- 1:max_degree
+plot(degree, cv.err5, type='b')
+
+```
+  
+### Commentary  
+
+K-fold cross validation is a widely used technique to estimate the predictive error of a fitted model.  
+  
+In this exercise, we used $K=5$; so our `cv.glm()` function segregated our data into five separate partitions.  The function used $K-1$ partitions for training purposes, and left out one partition for testing purposes.  This partitioning procedure was then repeated four times for a total of 5 iterations.  The output from the function is the average mean-squared error over all iterations.  
+  
+From our plot, we notice that the average MSE drops off dramatically from the initial 1 degree (linear) model to the second degree model.  This reduction is driven primarily by the reduced bias in the more complex, degree 2 model.   
+  
+The reduction in MSE continues through the fitted, degree 4 polynomial model.  However, the MSE gradually increases, starting with the degree 5 model.  The increase in MSE for higher degree models is likely a consequence of model overfitting.  Models that are sensitive to small subtleties in the training data often have low bias but also are associated with high variance.   
+  
+
+
+  
+
+
