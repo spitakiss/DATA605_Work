@@ -1,0 +1,795 @@
+---
+title: 'DATA 605: Final Project'
+author: "Aaron Grzasko"
+date: "5/14/2017"
+output: 
+  html_document:
+    theme: default
+    highlight: haddock
+---  
+
+```{r setup, include=FALSE}
+options(width=100)
+knitr::opts_chunk$set(echo = TRUE, comment=NA)
+```
+
+## Introduction  
+This project will show off your ability to understand the elements of the class. You are to register for Kaggle.com (free) and compete in the House Prices: Advanced Regression Techniques competition.  https://www.kaggle.com/c/house-prices-advanced-regression-techniques .  I want you to do the following.
+
+Pick **one** of the quantitative independent variables from the training data set (train.csv) , and define that variable as  X.   Pick **SalePrice** as the dependent variable, and define it as Y for the next analysis.  
+
+```{r}
+# read in data from github url
+myurl <- "https://raw.githubusercontent.com/spitakiss/DATA605_Work/master/Final/train.csv"
+house_data <- read.csv(myurl, header = TRUE, stringsAsFactors = FALSE)
+
+# subset data:  X = GrLivArea, Y = SalePrice
+house_data_redux <- subset(house_data, select = c(GrLivArea, SalePrice))
+names(house_data_redux) <- c("X","Y")
+
+# examine data
+head(house_data_redux)
+
+```
+  
+## Probability  
+  
+**Part 1**  
+Calculate as a minimum the below probabilities *a* through *c*.  Assume the small letter "x" is estimated as the 4th quartile of the X variable, and the small letter "y" is estimated as the 2nd quartile of the Y variable.  Interpret the meaning of all probabilities.  
+  
+*Let's first initialize variables x and y:*  
+
+```{r}
+# x = 4th quartile, (i.e. maximum)
+x <- quantile(house_data_redux$X, 1)
+x
+# y = 2nd quartile, (i.e. median)
+y <- quantile(house_data_redux$Y,0.5)
+y
+
+
+```
+
+**a. $\mathbf{P(X>x~|~Y>y)}$**  
+  
+*The expression above can be interpreted as follows:  the probability that the independent variable X 
+(living area in square feet) is greater than the 4th quartile (i.e. 5,642 square feet), given that the dependent variable Y (Sales Price) is greater than its 2nd quartile ($163,000).*
+
+$$P(X>x~|~Y>y)=\frac{P(X>x~ \cap~ Y>y)}{P(Y >y)}=\frac{\frac{n(X>x~ \cap~ Y>y)}{n}}{\frac{n(Y>y)}{n}}$$  
+$$=\frac{n(X>x~ \cap~ Y>y)}{n(Y>y)}$$  
+
+```{r}
+# probability, part a
+prob_a <- length(house_data_redux$X[house_data_redux$X > x & house_data_redux$Y>y]) / 
+            length(house_data_redux$Y[house_data_redux$Y > y])
+prob_a
+
+```
+
+**b. $\mathbf{P(X>x,~Y>y)}$**  
+  
+*The expression in part b can be interpreted as the probability that both 1) independent variable X (living area in square feet) is greater than its 4th quartile (5,642 square feet), and 2) the dependent variable Y (Sales Price) is greater than its 2nd quartiile ($163,000)*  
+  
+$$P(X>x~\cap~Y>y) = \frac{n(X>x ~ \cap~Y>y)}{n}$$    
+  
+```{r}
+# probability part b
+prob_b <- length(house_data_redux$X[house_data_redux$X > x & house_data_redux$Y>y]) / 
+            nrow(house_data_redux)
+prob_b
+```
+
+**c. $\mathbf{P(X<x,~Y>y)}$**  
+  
+*We interpret this expression as follows:  the probability that the independent variable X (living area in square feet) is less than its 4th quartile (5,642 square feet) AND the dependent variable Y (Sales Price) is greater than its 2nd quartile ($163,000).*  
+  
+$$P(X<x \cap~Y>y)=\frac{n(X<x~ \cap~Y>y)}{n}$$  
+
+  
+```{r}
+# probability part c
+prob_c <- length(house_data_redux$X[house_data_redux$X < x & house_data_redux$Y>y]) / 
+      nrow(house_data_redux)
+        
+prob_c
+```
+**Part 2**  
+
+Does splitting the training data in this fashion make them independent? In other words, does $P(X|Y)=P(X)P(Y))$? Check mathematically, and then evaluate by running a Chi Square test for association. You might have to research this.  
+  
+*If $X$ and $Y$ are statistically independent, then $P(X \cap Y) = P(X) \cdot P(Y)$*  
+  
+*Also, statistical independence is verified when $P(X|Y)=P(X)$.  This result flows from the previous identity.  We already know that the following equation holds regardless of whether two variables are independent: $P(X|Y) = \frac{P(X \cap Y)}{P(Y)}$.  Assuming independence, the expression on the right becomes $\frac{P(X)P(Y)}{P(Y)}=P(X)$*
+
+**a. $\mathbf{P(X>x~|~Y>y)}$**  
+  
+
+*Mathematical test for independence: Does $P(X>x~|~Y>y)=P(X>x)$?*  
+
+```{r}
+# P (X > x | Y > y), calculated earlier
+P.XgivenY <- prob_a
+P.XgivenY
+
+# P(X > x)
+P.X <- length(house_data_redux$X[house_data_redux$X > x ]) / nrow(house_data_redux)
+P.X
+
+# Does P(X > x | Y > y) =  P(X >x)?
+P.XgivenY == P.X
+```
+*The equation for independence is holds with this particular split of the variables X and Y.*  
+
+*Chi-Square Test for Independence:*  
+  
+*We are testing the following null and alternative hypotheses:*  
+  
+$H_0: X>x~ \mathrm{and}~ Y>y~ \mathrm{are~independent}$  
+$H_a: X>x~ \mathrm{and}~ Y>y~ \mathrm{are~not~independent}$  
+
+
+```{r}
+# add boolean variables X > x and Y > y to data frame
+house_data_redux$X_GT_x <- house_data_redux$X > x
+house_data_redux$Y_GT_y <- house_data_redux$Y > y
+
+# contingency table
+mytable <- table(subset(house_data_redux, select=c(X_GT_x, Y_GT_y)))
+mytable
+
+# chi square test, assume 5% level of significance 
+chisq.test(mytable)
+
+```
+  
+*The p-value from the Chi-Square test (i.e. 0.9166) is much higher than our specified 0.05 threshold; so  we fail to the reject the null hypothesis that variables $X>x$ and $Y>y$ are independent.*  
+  
+*Note:  The chi-squared test is  [appropriate](http://stattrek.com/chi-square-test/independence.aspx?Tutorial=AP) under the following conditions:*  
+*1. the variables are categorical*  
+*2. the data were obtained via random sampling*  
+*3. each cell in the contingency table has an expected frequency of at least 5*  
+  
+*Condition one is satisified by our splitting the quantitative variables X and Y into two boolean variables.  Unfortunately, we cannot verify that the observations in our data set were obtained through random sampling.  Also, the expected frequencies in two of the four contingency cells is zero.  Therefore, the chi-square test is most likely not an appropriate tool for testing independence.* 
+
+**b. $\mathbf{P(X>x,~Y>y)}$**  
+  
+*Mathematical test for independence: Does $P(X>x~\cap~Y>y)=P(X>x) \cdot P(Y > y)$?*  
+
+
+```{r}
+# P(X  > x, Y > y), calculated earlier
+P.XandY <- prob_b
+P.XandY
+
+# P(X > x), calculated earlier
+P.X
+
+# P(Y > y)
+P.Y <- length(house_data_redux$Y[house_data_redux$Y > y ]) / nrow(house_data_redux)
+P.Y
+
+# Does  P(X  > x, Y > y) = P(X > x) * P(Y > y) ?
+P.XandY == P.X * P.Y
+
+```
+*The indepedence identify is again verified for the binary variables X > x and Y < x.*  
+  
+*Chi-Square Test for Independence:*  
+  
+*As in part a, we are interested in determining whether the two binary variables, $P(X > x)$ and $P(Y > y)$, are independent.  Therefore, we use the same hypotheses and chi-square test specified in part a.*  
+  
+$H_0: X>x~ \mathrm{and}~ Y>y~ \mathrm{are~independent}$  
+$H_a: X>x~ \mathrm{and}~ Y>y~ \mathrm{are~not~independent}$  
+  
+```{r}
+# chi square test using contingency table from part a; assume 5% level of significance
+chisq.test(mytable)
+```
+*Given the high p-value, we fail to reject the null hypothesis that our variables are independent. As stated in part a, the chi square test is probably not an appropriate tool for testing independence in this case, as at least one of the key, chi-squre assumptions is violated.*     
+  
+**c. $\mathbf{P(X<x,~Y>y)}$**  
+  
+*Mathematical test for independence: Does $P(X<x~|~Y>y)=P(X<x)$?*  
+  
+```{r}
+
+# P (X < x, Y > y), calculated earlier in part 1.c
+P.XandY <- prob_c
+P.XandY
+
+# P(X < x )  
+P.X <- length(house_data_redux$X[house_data_redux$X < x ]) / nrow(house_data_redux)
+P.X
+
+# P(Y > y), calculated earlier
+P.Y
+
+# P(X <x) * P(Y > x)
+P.X * P.Y
+
+# Does P(X < x and Y > y) = P(X < x) P(Y > y)?
+abs(P.XandY - P.X * P.Y) < 0.0001
+
+```
+*The probability $P(X < x, Y > y)$ is very close albeit not equal to the product $P(X < x)\cdot P(Y<x)$.  In a strict mathematical sense, we have not verified independence, although for practical purposes, we are probably safe assuming the two variables are independent.  Note: the independence relation WOULD hold if we had tested a slightly different split of the data:  $P(X\leq x~\cap ~Y>y)=P(X \leq x)\cdot P(Y >y)$.  In the modified case, both sides of the equation are equal to 1.*  
+  
+*Chi-Square Test for Independence:*  
+  
+$H_0: X<x~ \mathrm{and}~ Y>y~ \mathrm{are~independent}$  
+$H_a: X<x~ \mathrm{and}~ Y>y~ \mathrm{are~not~independent}$  
+
+
+```{r, warning=FALSE}  
+# add new boolean variables to data frame: (X < x,Y > y) and  X < x, respectively
+house_data_redux$X_LT_x <- house_data_redux$X < x    
+house_data_redux$X_LT_x_Y_GT_y <- house_data_redux$X < x & house_data_redux$Y > y
+
+# contingency table
+mytable <- table(subset(house_data_redux, select=c(X_LT_x, X_LT_x_Y_GT_y)))
+mytable
+
+# chi square test, assume a 5% level of significance
+chisq.test(mytable)
+```
+*Given that the p value in excess of 0.05, we fail to reject the null hypothesis that $X < x$ and $Y > y$ are independent.*  
+  
+*As discussed in previous sections, the chi-square test is most likely not an appropriate test, as the expected frequency in each cell of our contingency table is not greater than or equal to 5.  We also do not have clear evidence that our data set was obtained using random sampling methods.*  
+  
+## Descriptive and Inferential Statistics  
+  
+Provide univariate descriptive statistics and appropriate plots for both variables.  
+  
+*Load packages:*  
+
+```{r, warning=FALSE, message=FALSE}
+# install psych and ggplot packages if not already installed
+if (!require(psych)) {install.packages('psych'); library(psych)}
+if (!require(ggplot2)) {install.packages('ggplot2'); library(ggplot2)}
+```
+  
+**Variable X**  
+
+*Let's start with variable X, GrLivArea:*  
+  
+*One of the first things we notice about variable X is that it is right skewed:*  
+-*The skewness has a value greater than zero (i.e 1.36)*  
+-*The mean is greater than the median, a common characteristic of right skewed distributions*  
+-*The histogram exhibits a fat right tail*  
+-*The box plot displays many outliers beyond the rightmost whisker (Q3 + 1.5IQR).*  
+
+*We also notice that is minimum value is positive and well above zero.  This is expected, as negative square feet is physically impossible, and even the the smallest structures (e.g. micro-apartments) generally have more than 200 sq feet.*  
+  
+*Finally, we note that the distribution of X exhibits higher kurtosis (i.e. peakedness) than the normal distribution (4.86 vs. 3, respctively).*   
+
+```{r, warning=FALSE, message = FALSE}
+# variable X: basic quantiles, min/max, measures of central tendency:  
+summary(house_data_redux$X)
+
+# variable X: other statistics including standard deviation, skewness, kurtosis
+describe(house_data_redux$X)
+
+# variable X histogram
+qplot(house_data_redux$X, xlab="Square Feet", main="Histogram of Variable X: GrLivArea")
+
+# variable Y boxplot
+boxplot(house_data_redux$X, horizontal = TRUE, xlab="Square Feet")
+```
+  
+**Variable Y**  
+
+*Now, let's examine descriptive statistics and plots for variable Y, SalePrice:*  
+  
+*The distribution of variable Y shares many characteristics with the variable X distribution:*  
+
+-*Positive skewnewss.  The skewness is more pronounced for variable Y compared with variable X (1.88 vs 1.36)*  
+-*High Kurtosis - The distribution of Y exhibits much higher kurtosis compared to the X distribution (6.5 vs. 4.86).*  
+-*All positive values.  The lowest sales price in our sample is roughly $35,000.*  
+
+  
+
+```{r, warning=FALSE, message = FALSE}
+# variable Y: basic quantiles, min/max, measures of central tendency:  
+summary(house_data_redux$Y)
+
+# variable y: other statistics including standard deviation, skewness, kurtosis
+describe(house_data_redux$Y)
+
+# variable Y histogram
+qplot(house_data_redux$Y, xlab="Sale Price, Dollars", main="Histogram of Variable Y: SalePrce")
+
+# variable Y boxplot
+boxplot(house_data_redux$Y, horizontal = TRUE, xlab="SalePrice")
+```  
+  
+**X,Y Transformations and Linear Relationships**  
+Provide a scatterplot of X and Y.  
+
+```{r}
+qplot(X,Y, data=house_data_redux) + stat_smooth(method=lm)
+```
+
+
+Transform both variables simultaneously using Box-Cox transformations.  You might have to research this.  
+  
+*The Box-Cox family of transformations can be described mathematically as follows:*  
+
+$$y^{(\lambda)}= \begin{cases} \frac{y^\lambda-1}{\lambda}~\mathrm{if }~\lambda\neq0\\ ln(y)~\mathrm{if}~\lambda =0 \\ \end{cases}$$  
+*According to Simon Sheather's text, [A Modern Approach to Regression with R (2009)](https://books.google.com/books?id=zS3Jiyxqr98C&pg=PA94&lpg=PA94&dq=transform+x+and+y+simultaneously+using+box+cox&source=bl&ots=qnhG3hBCK2&sig=qkS0sAjcV5EIT0Gr-YCfekpTXHg&hl=en&sa=X&ved=0ahUKEwiE39G7k4TUAhVK6yYKHRP3BtQQ6AEILTAB#v=onepage&q=transform%20x%20and%20y%20simultaneously%20using%20box%20cox&f=false), variables X and Y can be "transformed simultaneosly to joint normality using the multivariate generalization of the Box-Cox method" (94).*  
+  
+*Sheather provides [example R code](http://www.stat.tamu.edu/~sheather/book/docs/rcode/Chapter3NewMarch2011.R) for implementing the multivariate  Box-Cox tranformation.  The procedure relies on the `powerTransform()` function in the car package.*  
+  
+*Below is an adaptation of Sheather's R code, applied to housing data's SalePrice and GrLivingArea variables.*  
+
+```{r, warning=FALSE, message=FALSE}
+# load car package
+if (!require(car)) {install.packages('car'); library(car)}
+
+# Box Cox procedure 
+summary(powerTransform(cbind(Y,X)~1,data=house_data_redux))
+
+```
+  
+*The estimated values for $\lambda_Y,\lambda_X$ using the Box-Cox procedures are approximately -0.03, and -0.02.  For practical purposes, we consider both of these values to be sufficiently close to zero.  We therefore will apply natural log tranformations to both Y and X variables.*  
+
+Using the transformed variables, run a correlation analysis and interpret.  
+```{r}
+# initialize transformed variables
+lnY <- log(house_data_redux$Y)
+lnX <- log(house_data_redux$X)
+
+# correlation of transformed variables 
+cor(lnY, lnX)
+```
+*R's`cor()` function, by default, uses the Pearson correlation formula:*  
+
+  
+$$r=\frac{\Sigma(x-\bar{x})(y - \bar{y})}{\sqrt{\Sigma (x - \bar{x})^2\Sigma{(y - \bar{y}})^2}}$$
+*The correlation coefficient, $r$--with $0\leq r\leq1$--is a dimensionless statistic that measures the linear dependence between  the x and y variables, and assumes that both variables are normally distributed--see [here](http://www.sthda.com/english/wiki/correlation-test-between-two-variables-in-r) for additional details.*  
+  
+*Our calculated correlation coefficient, roughly 0.73, is indicative of a strong, positive linear association between the transformed variables, ln(X) and ln(Y). In the scatter plot below, we see that a fitted, OLS line using the transformed variables provides a better fit to the observed data points compared to the original variables.* 
+
+```{r}
+# scatter plot of transformed variables with linear trendline  
+qplot(lnX,lnY) + stat_smooth(method=lm)
+
+```
+  
+Test the hypothesis that the correlation between these variables is 0 and provide a 99% confidence interval.  Discuss the meaning of your analysis.  
+  
+*The null and alternative hypotheses are as follows:*  
+$H_0:~\rho = 0$  
+$H_a:~\rho \neq 0$
+
+*The applicable test statistic follows a [t-distribution](https://onlinecourses.science.psu.edu/stat501/node/259) with n-2 degrees of freedom, aand is calculated as follows:*  
+
+$$t=\frac{r \sqrt{n-2}}{\sqrt{1 - r^2}}$$
+*Rather than calculate the confidence interval manually, we can use R's cor.test() function*:  
+
+```{r}
+cor.test(lnY,lnX, method="pearson", conf.level=0.99)
+```
+*Using a 99% confidence interval, we estimate the population correlation coefficient to lie in the following interval: [0.697, 0.760].  The confidence interval does not contain the null hypothesis value of zero;  so we conclude that the results are statistically significant and reject the null hypothesis.*  
+  
+*We could also reject the null hypothesis based on the p-value (2.2e-16), which is well below the typical signficance levels used for hypothesis tests.*  
+  
+## Linear Algebra and Correlation.  
+Invert your correlation matrix. (This is known as the precision matrix and contains variance inflation factors on the diagonal.)  
+```{r}
+# store transformed variables in matrix
+mymat <- cbind(lnY, lnX)
+
+# calculate correlation matrix
+cor_mat <- cor(mymat)  
+cor_mat  
+
+# calculate precision matrix  
+p_mat <- solve(cor_mat)
+p_mat
+
+```  
+
+
+Multiply the correlation matrix by the precision matrix, and then multiply the precision matrix by the correlation matrix.  
+  
+*We see below that the matrix multiplication of the correlation matrix and the precision matrix is commutative.*  
+
+```{r}
+# correlation matrix * precision matrix
+cor_mat %*% p_mat
+
+# precision matrix * correlation matrix
+p_mat %*% cor_mat
+
+```
+
+## Calculus-Based Probability & Statistics
+
+Many times, it makes sense to fit a closed form distribution to data.  For your non-transformed independent variable, location shift it so that the minimum value is above zero.  
+ 
+*The minimum value of our X variable, GrLivingArea (sq ft), is already positive; so a location shift is unnecessary:*  
+```{r}
+# verify minimum value of X > 0:
+min(house_data_redux$X)
+```
+
+Then load the MASS package and run fitdistr to fit a density function of your choice.  (See  https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/fitdistr.html ).  Find the optimal value of the parameters for this distribution.    
+  
+*Two parametric models that commonly are fit to right-skewed data are the gamma and lognormal distributions.  Below, we fit both distributions, examine the fitted parameters (2 per model, in this problem), and output the log-likehood.*  
+  
+*The `fitdistr()` function optimizes parametric fit through maximum likelihood estimation (MLE).  In this procedure, model parameters are chosen such that the joint pdf (i.e. likehood or log-likelihood) of the observed sample values is maximized.*  
+  
+```{r, message=FALSE, warning=FALSE}
+# load MASS package
+if (!require(MASS)) {install.packages('MASS'); library(MASS)}
+
+# fit gamma
+mygamma <- fitdistr(house_data_redux$X, "gamma")
+
+# fitted gamma shape & scale parameters through MLE
+mygamma$estimate
+
+# gamma log likelihood
+mygamma$loglik
+
+# fit lognormal
+mylognormal <- fitdistr(house_data_redux$X, "lognormal")
+
+# fitted lognormal parameters , mu & sigma
+mylognormal$estimate
+
+# lognormal log-likelihood
+mylognormal$loglik
+
+```
+  
+*In this problem, we see that the lognormal distribution has a higher log-likehood, which is indicative of a better fit; so we will proceed with this model.*  
+  
+*Note: in practice, there are other measures for assessing model fit, including penalized log likehood, but that goes beyond the scope of this assignment.*  
+  
+Take 1,000 samples from this distribution (e.g., rexp(1000, λ) for an exponential).  Plot a histogram and compare it with a histogram of your non-transformed original variable.  
+  
+```{r, message=FALSE, warning=FALSE}
+# randomly sample 1000 data points from fitted lognormal
+set.seed(1)
+ln_sample <- rlnorm(n=1000, meanlog = mylognormal$estimate["meanlog"], sdlog = mylognormal$estimate["sdlog"])
+
+# histograms of actual data and simulated lognormals
+actual <- data.frame(GrLivingArea = house_data_redux$X)
+myfit <- data.frame(GrLivingArea = ln_sample)
+actual$type <- "actual"; myfit$type <- "lognormal"; mydata <- rbind(actual,myfit)
+
+ggplot(mydata, aes(x=GrLivingArea,fill = type)) + geom_histogram(alpha = 0.5, aes(y = ..density..), position = 'identity') + labs(title = "Histogram of Actual Data and Simulated Lognormals")
+```
+ 
+*In the plot above, we see that the lognormal distribution provides a good fit to the the empirical data, but there are some inconsistencies:*  
+  
+-*The lognormal distribution has a more concentrated probability density in the direct center of the histogram*  
+-*The empirical data has a somewhat longer right tail* 
+
+## Modeling  
+Build some type of regression model and submit your model to the competition board.  Provide your complete model summary and results with analysis.  Report your Kaggle.com  user name and score.  
+
+**Data Cleaning**
+*First, we need to clean our training data.  There are small number of variables that we will manually remove from our universe of potential predictor variables:*  
+- *Id: This is an arbitrary field and should have no predictive value.  We'll leave this variable in initially for identification purposes, but this field will not be used as an explanatory variable.*  
+- *GarageYrBlt: This numeric field has many NAs.  We have no practical solution (e.g. setting all NAs to 0) in this case.*  
+- *MoSold:  The month of sale may have an impact on price; however, the methods for addressing the seasonality (e.g. sinusoidal function) are beyond the scope of this assignment.*  
+
+  
+*We also perform a couple additional adjustments in our initial_clean() function:*  
+- *Replacing NAs in numeric functions with 0 where applicable*  
+- *Adding NA as additional level for categorical variables*  
+- *Convert the field MSSubClass to a factor, as the numeric values appear to refer to a category*
+
+```{r, message=FALSE, warning=FALSE}
+# load packages
+if (!require(rockchalk)) {install.packages('rockchalk'); library(rockchalk)}
+
+# training data
+train <- read.csv(myurl, header = TRUE, stringsAsFactors = TRUE)
+
+# test data
+myurl_test <- "https://raw.githubusercontent.com/spitakiss/DATA605_Work/master/Final/test.csv"
+test <- read.csv(myurl_test, header = TRUE, stringsAsFactors = TRUE)
+
+# combined data
+combined_data <- rbind(data.frame(type="train",train),data.frame(type="test",test, SalePrice=0))
+
+
+# remove subset of columns, massage NAs in data
+initial_clean <- function(df){
+  mydf <- df
+  # assume MSSubClass numbers are really categorical in nature
+  mydf$MSSubClass <- as.factor(mydf$MSSubClass)
+  
+  # exclude columns that are nonsensical, have NAs that can't be fixed
+  # or will require advanced modeling (e.g. sinusoidal pattern for month sold) to utilize appropriately
+  excl_col <- c("GarageYrBlt","MoSold") 
+                
+  mydf <- mydf[,-which(names(mydf) %in% excl_col)]
+  
+  # add NA as additonal level for categorical variables
+  # add 0 in place of NA for numerical variables
+  for (col in names(mydf)){
+    if(is.factor(mydf[,col]) & anyNA(mydf[,col])){
+      mydf[,col] <- addNA(mydf[,col])
+    }
+    else if(is.numeric(mydf[,col]) & anyNA(mydf[,col])){
+     for (i in 1:nrow(mydf)){
+       mydf[i,col] <- ifelse(is.na(mydf[i,col]),0,mydf[i,col])
+     }
+      
+    }
+  
+  }
+  mydf
+}
+
+# initial cleanse of combinded data set 
+combined_data <- initial_clean(combined_data)
+```
+  
+*Next, we consolidate categorical variables into an "Other" bucket when a particular attribute is observed in fewer than 70 samples in our data set.  We do this as a precautionary step to avoid overfitting: attributes with few observations are not statstically credible.  Note: The choice of the number 70 is based on the author's judgment.*
+
+```{r, message=FALSE, results=FALSE, warning=FALSE, comment=NA}
+# combine low frequency categories together into "Other" bucket
+cat_combine_train <- function(df, cat_threshold){
+  mydf <- df
+  
+  fct_vars <- which(sapply(mydf, function(x) is.factor(x)))
+  for (var in fct_vars){
+    lowfreq <- names(which(table(mydf[,var]) < cat_threshold))
+    
+    if (length(lowfreq) >= 1){
+      mydf[,var] <- combineLevels(mydf[,var], levs = lowfreq, newLabel = "Other") 
+    }
+  }
+  
+  # add NA as additonal level for categorical variables
+  # add 0 in place of NA for numerical variables
+  for (col in names(mydf)){
+    if(is.factor(mydf[,col]) & anyNA(mydf[,col])){
+      mydf[,col] <- addNA(mydf[,col])
+    }
+    else if(is.numeric(mydf[,col]) & anyNA(mydf[,col])){
+     for (i in 1:nrow(mydf)){
+       mydf[i,col] <- ifelse(is.na(mydf[i,col]),0,mydf[i,col])
+     }
+      
+    }
+  
+  }
+  
+  mydf
+ 
+}
+# more cleansing of combined data set
+combined_data <- cat_combine_train(combined_data,70)
+```
+
+*Finally, we remove any remaining columns with fewer than 20 observations in the data set.*  
+
+```{r}
+# find more columns to remove:  Where "Other bucket" has frequency less than specified threshold
+find_rm_cols <- function(df, threshold){
+  rm_cols <- character()
+  for(col in names(df)){
+    if(is.factor(df[,col]) & length(df[,col][df[,col]=="Other"]) < threshold){
+      rm_cols <- append(rm_cols, col)
+    }
+  }
+  rm_cols
+}
+
+
+rm_cols <- find_rm_cols(combined_data,70)
+
+# final scrub to combined data
+combined_data <- combined_data[-which(names(combined_data) %in% rm_cols[2:length(rm_cols)])]
+
+# split into training data
+train <- combined_data[which(combined_data$type == "train"),]
+train <- train[,3:ncol(train)]
+
+# split into test data
+test <- combined_data[which(combined_data$type == "test"),]
+test <- test[,3:(ncol(test)-1)]
+
+
+```
+
+**Train on Partitioned Training Set**  
+
+*Let's proceed by fitting our model using a partitioned (80%) version of our training data.*  
+*Note:  we use a bi-directional stepwise regression procedure for variable selection.*  
+ 
+```{r, message=FALSE, warning=FALSE, results=FALSE, comment=NA}
+# load caret library for partitioning procedure
+if (!require(caret)) {install.packages('caret'); library(caret)}
+
+# Partition Data
+set.seed(2)
+partition <- createDataPartition(y=train$SalePrice,
+                                 p=.8,
+                                 list=F)
+
+training1 <- train[partition,]  # training subset
+testing1 <- train[-partition,]  # test subset
+
+
+# step wise procedure
+fullModel <- lm(SalePrice ~ ., data=training1)
+nullModel <- lm(SalePrice~1, data=training1)  
+
+mystep <- step(nullModel, scope=list(lower=nullModel, upper=fullModel),direction="both",trace=0)
+mymodel <- eval(mystep$call)
+
+```
+  
+We see that the fit of model is respectable, with an adjusted $R^2$ value around 0.85,.
+```{r}
+# model summary
+summary(mymodel)  
+```  
+
+*Now let's test the RMSE of model on the remaining 20% partiion:*  
+
+```{r, message=FALSE, warning=FALSE}
+# predictions on testing1 subset of training data
+prediction <- predict(mymodel, testing1, type="response")
+model_output <- cbind(testing1, prediction)
+
+# calculate RMSE
+model_output$log_prediction <- log(model_output$prediction)
+model_output$log_SalePrice <- log(model_output$SalePrice)
+
+if (!require(ModelMetrics)) {install.packages('ModelMetrics'); library(ModelMetrics)}
+rmse(model_output$log_SalePrice,model_output$log_prediction)
+
+
+```
+*As you can see, the RMSE is also at an acceptable level.*  
+  
+**Train Model on Full Training Set**  
+
+*We'll now retrain the previous procedure on the the full training set:*  
+
+```{r, message=FALSE, results=FALSE, comment=NA, warning=FALSE}
+# stepwise regression on full training set
+fullModel <- lm(SalePrice ~ ., data=train)
+nullModel <- lm(SalePrice~1, data=train)
+mystep <- step(nullModel, scope=list(lower=nullModel, upper=fullModel),direction="both",trace=0)
+mymodel <- eval(mystep$call)
+
+```
+
+```{r}
+# output of training model
+summary(mymodel)
+```
+*Once again, the adjusted $R^2$ is at a respectable 0.85.  However, we noticed that some of the dummy variables created from categorical fields (see NeighborhoodSomerst for an example) have very high p-values.*  
+
+**Make Predictions on Test Data Set**  
+  
+*Let's predict sale prices in our test data set, using the model calibrated on the full training data.*  
+*Then, export and send to Kaggle for scoring.*   
+*Note: my team name for the competition is "Aaron Grzasko", and my kaggle user id is "spitakiss."*
+
+```{r, message=FALSE, warning=FALSE}
+# predictions on testing1 subset of training data
+prediction <- predict(mymodel, test, type="response")
+
+# prep format
+predictdf <- data.frame(Id=names(prediction),SalePrice=prediction)
+
+#manual fix to one negative prediciton:  set equal to zero
+predictdf$SalePrice <- ifelse(predictdf$SalePrice < 0,0,predictdf$SalePrice)
+
+# export to csv, commenting out for now
+#write.csv(predictdf,"predict.csv", row.names=FALSE)
+
+```
+  
+*With my first entry, I acheived a public score of 0.42355, slightly worse than the benchmark score of roughly 0.40.*  
+  
+*In an attempt to improve my score, I decided to fit a simple model using only numerical variables*.  
+
+**Simple Model Based only on Numeric Data Types**  
+```{r}
+
+# read in data sets; adjust NAs to 0
+train2 <- read.csv(myurl, header = TRUE, stringsAsFactors = TRUE)       
+train2 <- initial_clean(train2)
+
+test2 <- read.csv(myurl_test, header = TRUE, stringsAsFactors = TRUE)
+test2 <- initial_clean(test2)
+
+# limit universe of variables to numerical items only; using the subset of quantitative fields in the previous model 
+num_var <- c('OverallQual','GrLivArea','BsmtFinSF1','GarageCars','OverallCond','YearBuilt','LotArea','BsmtFullBath','ScreenPorch','WoodDeckSF','BedroomAbvGr','MasVnrArea','KitchenAbvGr','LowQualFinSF','FullBath','TotRmsAbvGrd','Fireplaces','HalfBath','LotFrontage','GarageArea','X3SsnPorch','SalePrice')
+
+train2 <- train2[which(names(train2) %in% num_var)]
+
+
+# perform stepwise selection
+fullModel <- lm(SalePrice ~ ., data=train2)
+
+nullModel <- lm(SalePrice~1, data=train2)
+mystep <- step(nullModel, scope=list(lower=nullModel, upper=fullModel),direction="both",trace=0)
+mymodel <- eval(mystep$call)
+```
+
+```{r}
+
+# remove LowQaulFinSF, the only variable in the stepwise model with p val > 0.05
+mymodel <- lm(formula = SalePrice ~ OverallQual + GrLivArea + BsmtFinSF1 + GarageCars + YearBuilt + LotArea + OverallCond + MasVnrArea + 
+    BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + HalfBath + BsmtFullBath +  ScreenPorch + WoodDeckSF + LotFrontage + Fireplaces, 
+    data = train2)
+
+# model output
+summary(mymodel)
+```
+*In this simpler model, we have a lower $R^2$ of 0.80.  However, all regression coefficients are statistically significant--see the low p-value output.*  
+  
+*Let's run predictions and submit to Kaggle.*  
+
+
+```{r}
+# predict
+prediction <- predict(mymodel, test2)
+
+# make data frame
+predictdf <- data.frame(Id=test2$Id,SalePrice=prediction)
+
+#manual fix to one negative prediciton:  set equal to zero
+predictdf$SalePrice <- ifelse(predictdf$SalePrice < 0,0,predictdf$SalePrice)
+
+# export to csv
+#write.csv(predictdf,"predict3.csv", row.names=FALSE)
+```
+*Unfortunately, the simple model performed much worse, with a public Kaggle score of 0.59998.*  
+
+  
+**LASSO Regression Model**  
+  
+*With a frustrating initial Kaggle score, I decided to fit a more complex model to the data.  Here is my attempt at fitting a LASSO Regression model, based on the procedure outline [here](https://www.kaggle.com/jiashenliu/house-prices-advanced-regression-techniques/updated-xgboost-with-parameter-tuning/run/362252).*  
+
+```{r, message=FALSE, warning=FALSE}
+# helper function to convert factor variables to integers
+fact_to_int <- function(df){
+  for (i in 1:ncol(df)){
+    if(is.factor(df[,i])){
+      df[,i] <- as.integer(df[,i])
+    }
+  }
+  df
+} 
+
+# read in data sets; adjust NAs to 0
+train3 <- read.csv(myurl, header = TRUE, stringsAsFactors = TRUE)       
+train3 <- initial_clean(train3)
+train3 <- fact_to_int(train3)
+
+test3 <- read.csv(myurl_test, header = TRUE, stringsAsFactors = TRUE)
+test3 <- initial_clean(test3)
+test3 <- fact_to_int(test3)
+
+# load lars package; run lasso
+if (!require(lars)) {install.packages('lars'); library(lars)}
+
+mylasso <- lars(as.matrix(train3[,2:(ncol(train3)-1)]),as.matrix(train3[,ncol(train3)]),type = 'lasso')
+best <- mylasso$df[which.min(mylasso$Cp)]
+
+# predictions
+prediction <- predict.lars(mylasso ,newx =as.matrix(test3[,2:ncol(test3)]), s=best, type= "fit")
+
+# make data frame
+predictdf <- data.frame(Id=test3$Id,SalePrice=prediction$fit)
+
+# output to csv
+# write.csv(predictdf, "predict4.csv", row.names = FALSE)
+
+
+```
+  
+*Fortunately, the new model performed much better than the previous two models, with a public kaggle score of 0.26432, which is significantly better than the benchmark score.*  
+  
